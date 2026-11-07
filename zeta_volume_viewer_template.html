@@ -3,7 +3,7 @@
 <style>
 :root{--bg:#080b13;--panel:#101a2ae8;--line:#33465d;--text:#eaf5ff;--sub:#94aabd;--gold:#ffc36f;--cyan:#7be8e4;--purple:#cfabfb}
 *{box-sizing:border-box}body{margin:0;overflow:hidden;background:var(--bg);color:var(--text);font:13px system-ui,Segoe UI,sans-serif}canvas{width:100vw;height:100vh;display:block;outline:none}
-#ui{position:fixed;left:18px;top:17px;bottom:15px;display:flex;flex-direction:column;gap:11px;max-width:min(325px,calc(100vw - 40px));overflow:auto;padding-right:5px;scrollbar-width:thin;pointer-events:none}#ui>*{pointer-events:auto}
+#ui{position:fixed;left:18px;top:17px;bottom:15px;display:flex;flex-direction:column;gap:11px;max-width:min(325px,calc(100vw - 40px));overflow-y:scroll;overflow-x:hidden;padding-right:5px;scrollbar-width:auto;scrollbar-color:#647f9d #152236;pointer-events:auto;z-index:5;overscroll-behavior:contain}#ui>*{pointer-events:auto;flex-shrink:0}#ui::-webkit-scrollbar{width:12px}#ui::-webkit-scrollbar-thumb{background:#647f9d;border-radius:8px;border:2px solid #152236}
 .panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(14px);box-shadow:0 15px 65px #0006;padding:15px}
 h1{margin:0 0 6px;font:850 21px system-ui;letter-spacing:-.035em}h1 span{color:var(--cyan)}.tag{font:10px ui-monospace,Consolas,monospace;letter-spacing:.15em;color:var(--gold);margin-bottom:8px}.hint{font:11px/1.6 ui-monospace,Consolas,monospace;color:var(--sub)}.hint strong{color:var(--cyan)}
 button,select{font:inherit;background:#192b42;color:var(--text);border:1px solid #4b6282;border-radius:8px;padding:8px 10px;cursor:pointer}button:hover,select:hover{border-color:var(--cyan)}button.active{background:#14514a;border-color:var(--cyan)}button.primary{background:linear-gradient(115deg,#ffc36f,#ff9484);color:#19110b;font-weight:800;border:0}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #7be8e4;outline-offset:3px}
@@ -18,16 +18,16 @@ button,select{font:inherit;background:#192b42;color:var(--text);border:1px solid
  <div class="panel"><div class="tag">ZETA DREAMER / INTERNAL UNIVERSE</div><h1>Step <span>inside the phase.</span></h1><div class="hint">This is a real sample of the trained neural field in coordinates <strong>(x, y, t)</strong>. The images were taught at fixed t values; everything between and beyond is evaluated from that field.</div><div class="info"><span>VOLUME</span><strong>__GRID_SIZE__³ voxels</strong><span>t RANGE</span><strong>__T_START__ → __T_END__</strong><span>INPUT SLICES</span><strong>__ANCHOR_LABEL__</strong><span>PHASE WINDING</span><strong>measured on sampled plaquettes</strong></div></div>
  <div class="panel"><div class="tag">NAVIGATION</div><div class="grid"><button class="primary" id="enter">ENTER CENTER (G)</button><button id="outside">VIEW ORB (O)</button><button id="resume">CAPTURE MOUSE</button><button id="screenshot">SAVE IMAGE (P)</button></div><p class="hint">Click the 3D view to look around. <strong>W A S D</strong> fly, <strong>R / F</strong> up/down, <strong>G</strong> enter center, <strong>Shift</strong> fast, <strong>Q / E</strong> roll-free yaw, <strong>Esc</strong> release mouse. Arrow keys turn. <strong>1–5</strong> switch modes.</p></div>
  <div class="panel"><div class="tag">MATTER AND PHASE</div><select id="mode" style="width:100%"><option value="0">1 / HYBRID WORLD</option><option value="1">2 / DREAM GRADIENT SHEETS</option><option value="2">3 / IMAGE CLOUDS</option><option value="3">4 / COMPLEX NODAL SHEETS</option><option value="4">5 / VORTEX FILAMENTS</option></select><p class="hint" id="modeHelp">Structures from image gradients, real/imaginary nodal sheets and candidate phase winding cells.</p>
-   <div class="input-row"><label>Surface threshold <b id="cutV">0.18</b></label><input id="cut" type="range" min="0.0" max="0.8" value="0.18" step="0.01"></div>
+   <div class="input-row"><label>Surface threshold (modes 1–3) <b id="cutV">0.24</b></label><input id="cut" type="range" min="0.0" max="0.8" value="0.24" step="0.01"></div>
    <div class="input-row"><label>Density / glow <b id="densityV">2.8</b></label><input id="density" type="range" min="0.15" max="7" value="2.8" step="0.05"></div>
-   <div class="input-row"><label>Volume resolution <b id="scaleV">65%</b></label><input id="scale" type="range" min="35" max="100" value="65" step="5"></div>
-   <div class="input-row"><label>Ray steps <b id="stepsV">144</b></label><input id="steps" type="range" min="64" max="256" value="144" step="16"></div>
+   <div class="input-row"><label>Volume resolution <b id="scaleV">80%</b></label><input id="scale" type="range" min="35" max="100" value="80" step="5"></div>
+   <div class="input-row"><label>Ray steps <b id="stepsV">176</b></label><input id="steps" type="range" min="64" max="256" value="176" step="16"></div>
    <div class="input-row"><label>Complex channel <b id="channelV">RED</b></label><select id="channel"><option value="0">Red complex field</option><option value="1">Green complex field</option><option value="2">Blue complex field</option></select></div>
-   <label style="font-size:12px;color:var(--sub)"><input type="checkbox" id="rim" checked> Show spherical boundary</label>
+   <div class="input-row"><label>True filament width <b id="lineWidthV">2.0 px</b></label><input id="lineWidth" type="range" min="0.65" max="5" value="2" step="0.15"></div><label style="font-size:12px;color:var(--sub)"><input type="checkbox" id="rim" checked> Show spherical boundary</label>
  </div>
- <div class="panel"><div class="tag">WHAT YOU ARE SEEING</div><div class="hint">The RGB cloud comes from the model's original output. The nodal surfaces are places where <strong>Re(Z)=0</strong> or <strong>Im(Z)=0</strong>. Golden filaments show grid cells with phase winding around a small loop. Their geometry is not imposed by the display.<p style="margin-bottom:0">A feature near a Riemann zero is not automatically caused by that zero. The red markers are references only.</p></div></div>
+ <div class="panel"><div class="tag">WHAT YOU ARE SEEING</div><div class="hint">The RGB cloud comes from the model's original output. The nodal surfaces are places where <strong>Re(Z)=0</strong> or <strong>Im(Z)=0</strong>. Filament mode renders thin sub-voxel line segments defined by simultaneous Re(Z)=Im(Z)=0. These are extracted from a piecewise-linear approximation of the trained field, not blurred occupied voxels.<p style="margin-bottom:0">A feature near a Riemann zero is not automatically caused by that zero. The red markers are references only.</p></div></div>
 </div>
-<div id="right"><div><span class="dot" id="runningDot"></span><span id="status">READY</span></div><div>POSITION: <strong id="xyz">0.00, 0.00, 0.00</strong></div><div>SLICE t: <strong id="timeT">0.00</strong></div><div id="region">TRAINING / EXTRAPOLATION</div><div id="nearZero"></div><div style="color:#6c819b">Click image for pointer lock • mouse wheel adjusts speed</div></div>
+<div id="right"><div><span class="dot" id="runningDot"></span><span id="status">READY</span></div><div>POSITION: <strong id="xyz">0.00, 0.00, 0.00</strong></div><div>SLICE t: <strong id="timeT">0.00</strong></div><div id="region">TRAINING / EXTRAPOLATION</div><div id="nearZero"></div><div style="color:#6c819b">Scroll the left panel normally • wheel over the 3D view adjusts speed</div></div>
 <div id="center">+</div><div id="notice" role="status"></div>
 <script>
 'use strict';
@@ -41,7 +41,7 @@ const modes = [
  'Edges where the decoded RGB field changes through the 3D volume.',
  'Translucent RGB intensity, showing the evolving learned images.',
  'Blue surfaces: Re(Z)=0. Purple surfaces: Im(Z)=0. Their intersections can produce phase vortices.',
- 'Golden highlights mark plaquettes around which a complex channel phase winds by ±2π.'
+ 'Thin, RGB-channel-colored lines reconstructed by finding Re(Z)=Im(Z)=0 between grid points.'
 ];
 const decode = b64 => {const binary=atob(b64), out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out;};
 const VERT=`#version 300 es
@@ -117,7 +117,7 @@ function shader(type,src){const sh=gl.createShader(type);gl.shaderSource(sh,src)
 function program(){const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,VERT));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,FRAG));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p;}
 function tex3d(i,b64){const data=decode(b64);if(data.length!==S*S*S*4)throw Error('Corrupt volume '+i+': '+data.length);const tx=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_3D,tx);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA8,S,S,S,0,gl.RGBA,gl.UNSIGNED_BYTE,data);return tx;}
 let p,loc,ready=false;
-const state={pos:[0,0,-.33],yaw:0,pitch:0,move:1.0,mode:0,cut:.18,density:2.8,scale:.65,steps:144,channel:0,rim:true};
+const state={pos:[0,0,-.33],yaw:0,pitch:0,move:1.0,mode:0,cut:.24,density:2.8,scale:.80,steps:176,lineWidth:2,channel:0,rim:true};
 const keys=new Set();let last=performance.now(),frame=0;
 function init(){
  if(!gl)throw Error('WebGL2 unavailable: use recent Edge/Chrome and enable hardware acceleration.');
@@ -150,7 +150,7 @@ function render(now){requestAnimationFrame(render);if(!ready)return;
 }
 function linkSlider(id,key,format){const el=$(id),label=$(id+'V');el.addEventListener('input',()=>{state[key]=Number(el.value)*({scale:.01}[key]||1);label.textContent=format(state[key]);});}
 function setup(){
- linkSlider('cut','cut',v=>v.toFixed(2));linkSlider('density','density',v=>v.toFixed(2));linkSlider('scale','scale',v=>Math.round(v*100)+'%');linkSlider('steps','steps',v=>v);
+ linkSlider('cut','cut',v=>v.toFixed(2));linkSlider('density','density',v=>v.toFixed(2));linkSlider('scale','scale',v=>Math.round(v*100)+'%');linkSlider('steps','steps',v=>v);linkSlider('lineWidth','lineWidth',v=>v.toFixed(1)+' px');
  $('channel').addEventListener('change',e=>{state.channel=Number(e.target.value);$('channelV').textContent=['RED','GREEN','BLUE'][state.channel];});
  $('rim').addEventListener('change',e=>state.rim=e.target.checked);
  const setMode=i=>{state.mode=i;$('mode').value=String(i);$('modeHelp').textContent=modes[i];};
@@ -173,7 +173,7 @@ function setup(){
  });
  document.addEventListener('keyup',e=>keys.delete(e.code));
  window.addEventListener('blur',()=>keys.clear());
- window.addEventListener('wheel',e=>{if(e.target===canvas){state.move=Math.max(.1,Math.min(3.5,state.move*(e.deltaY>0?.9:1.1)));}}, {passive:true});
+ canvas.addEventListener('wheel',e=>{e.preventDefault();state.move=Math.max(.1,Math.min(3.5,state.move*(e.deltaY>0?.9:1.1)));}, {passive:false});
  $('hideUi').onclick=toggleUi;
 }
 function toggleUi(){const hidden=$('ui').style.display==='none';$('ui').style.display=hidden?'flex':'none';$('hideUi').textContent=hidden?'HIDE UI (H)':'SHOW UI (H)';}
