@@ -1045,16 +1045,16 @@ class ZetaDreamerApp:
         d = tk.Toplevel(self.root)
         d.title('Make a walkable Zeta Dreamer volume')
         d.configure(bg=DARK)
-        d.geometry('440x295')
+        d.geometry('500x345')
         d.grab_set()
         tk.Label(d, text='ENTER THE COMPLEX VOLUME', bg=DARK, fg=GOLD,
                  font=('Consolas', 13, 'bold')).pack(pady=(15, 3))
         tk.Label(d, text='Each image is an (x,y) slice. Choose the third-coordinate range.',
                  bg=DARK, fg=BLUE, font=('Consolas', 9)).pack(pady=(0, 15))
-        t0 = tk.StringVar(value='75.0')
-        t1 = tk.StringVar(value='85.0')
-        grid = tk.StringVar(value='64')
-        for label, var in [('t start', t0), ('t end', t1), ('grid (32 / 48 / 64 / 80)', grid)]:
+        t0 = tk.StringVar(value='79.30')
+        t1 = tk.StringVar(value='80.90')
+        grid = tk.StringVar(value='96')
+        for label, var in [('t start', t0), ('t end', t1), ('grid (32 / 64 / 96 / 128)', grid)]:
             r = tk.Frame(d, bg=DARK); r.pack(fill=tk.X, padx=55, pady=3)
             tk.Label(r, text=label, bg=DARK, fg='#aabccf', width=24,
                      anchor='w', font=('Consolas', 9)).pack(side=tk.LEFT)
@@ -1067,8 +1067,12 @@ class ZetaDreamerApp:
                 return
             t0.set(f'{min(ts)-1.5:.2f}'); t1.set(f'{max(ts)+1.5:.2f}')
         self._btn(controls, 'TRAINED RANGE', stored).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
-        self._btn(controls, 'FAR FIELD 75..85',
-                  lambda: (t0.set('75.0'), t1.set('85.0'))).pack(
+        self._btn(controls, 'AROUND SLIDER',
+                  lambda: (t0.set(f'{self.cur_t-.8:.3f}'),
+                           t1.set(f'{self.cur_t+.8:.3f}'))).pack(
+                      side=tk.LEFT, fill=tk.X, expand=True, padx=3)
+        self._btn(controls, 'FAR 79.3..80.9',
+                  lambda: (t0.set('79.30'), t1.set('80.90'))).pack(
                       side=tk.LEFT, fill=tk.X, expand=True, padx=3)
 
         def begin():
@@ -1077,8 +1081,8 @@ class ZetaDreamerApp:
                 size = int(grid.get())
                 if not (np.isfinite(aa) and np.isfinite(bb) and bb > aa):
                     raise ValueError('t end must be greater than t start')
-                if size not in (32, 48, 64, 80):
-                    raise ValueError('Choose grid size 32, 48, 64 or 80')
+                if size not in (32, 48, 64, 80, 96, 128):
+                    raise ValueError('Choose grid size 32, 48, 64, 80, 96 or 128')
             except ValueError as e:
                 messagebox.showerror('Invalid range', str(e), parent=d)
                 return
@@ -1105,7 +1109,7 @@ class ZetaDreamerApp:
                                             size=size, anchors=anchors, progress=progress)
                         def done():
                             self.export_busy = False
-                            self.lbl_loss.config(text=f'3D world ready: {size}³')
+                            self.lbl_loss.config(text=f'3D world ready: {size}³ / {info.get("filament_segment_count",0):,} lines')
                             print('ZETA 3D EXPORT:', info)
                             webbrowser.open(Path(path).resolve().as_uri())
                             messagebox.showinfo('3D WORLD READY',
