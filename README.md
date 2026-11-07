@@ -13,7 +13,7 @@ From the updated repository folder, run:
 
     python3.13 upgrade_existing_world.py "F:\\DocsHouse\\1051\\zeta_world_75_85.html"
 
-The script creates `zeta_world_75_85_sharp.html` next to it, retaining the original sampled RGB and complex field while generating sub-voxel vortex line segments. It does not alter or overwrite the original. You can upgrade the two checked-in sample HTML worlds the same way. **Previously generated HTML files do not update themselves.**
+Alternatively, in the Python GUI click **↻ SHARPEN OLD 3D HTML** and select the old file. The script creates `zeta_world_75_85_sharp.html` next to it, retaining the original sampled RGB and complex field while generating sub-voxel vortex line segments. It does not alter or overwrite the original. You can upgrade the two checked-in sample HTML worlds the same way. **Previously generated HTML files do not update themselves.**
 
 The viewer now provides:
 - **Working independent left-panel scrolling**, including wheel and draggable scrollbar thumb. Only mouse-wheel activity over the 3D canvas adjusts flight speed.
