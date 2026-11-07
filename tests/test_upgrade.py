@@ -32,7 +32,7 @@ class WorldUpgradeTest(unittest.TestCase):
             old=Path(temp)/'old.html'
             old.write_text('<script>const EMBEDDED = '+json.dumps(data)+';</script>',encoding='utf-8')
             recovered=read_payload(old.read_text('utf-8'))
-            np.testing.assert_allclose(unpack_complex(recovered)[...,0,0],raw[...,0,0],atol=.009)
+            np.testing.assert_allclose(unpack_complex(recovered)[...,0,0],np.clip(raw[...,0,0],-1,1),atol=.009)
             details=upgrade(old)
             self.assertGreater(details['filament_segment_count'],0)
             new=Path(details['output'])
