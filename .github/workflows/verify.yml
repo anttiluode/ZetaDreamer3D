@@ -1,0 +1,25 @@
+name: Check Zeta Dreamer 3D mathematics
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy
+      - run: python -m unittest discover -s tests -v
+      - name: Check WebGL viewer script syntax
+        run: |
+          node - <<'JS'
+          const fs=require('fs');
+          const h=fs.readFileSync('zeta_volume_viewer_template.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);
+          if(!m)throw Error('Script missing');
+          const src=m[1].replace('__EMBEDDED_DATA__','{"size":32,"rgb":"","c0":"","c1":"","anchors":[],"zeros":[],"t0":0,"t1":1}');
+          new Function(src);
+          console.log('Viewer JavaScript syntax OK');
+          JS
