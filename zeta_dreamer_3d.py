@@ -48,6 +48,7 @@ import time
 import webbrowser
 from pathlib import Path
 from zeta_volume_export import export_world
+from upgrade_existing_world import upgrade as upgrade_exported_html
 
 # ─────────────────────────────────────────────────────────────────
 # KNOWN RIEMANN ZEROS (imaginary parts of first 25 non-trivial zeros)
@@ -438,6 +439,8 @@ class ZetaDreamerApp:
 
         self._btn(top_fixed, '✦ ENTER 3D WORLD', self._export_3d_dialog,
                   bg='#30402e', fg='#ffd898').pack(fill=tk.X, padx=8, pady=(8, 2))
+        self._btn(top_fixed, '↻ SHARPEN OLD 3D HTML', self._upgrade_old_html,
+                  bg='#1c3038', fg='#88e4dd').pack(fill=tk.X, padx=8, pady=(2, 6))
 
         # Fixed bottom (controls — packed from bottom so they never disappear)
         bot_fixed = tk.Frame(left, bg='#0d1117')
@@ -1033,6 +1036,38 @@ class ZetaDreamerApp:
             self._render_current()
         except Exception as e:
             messagebox.showerror('Load failed', str(e))
+
+    def _upgrade_old_html(self):
+        """Repair an earlier standalone WebGL viewer without retraining."""
+        if self.export_busy:
+            messagebox.showinfo('Export', 'Another 3D operation is running')
+            return
+        path = filedialog.askopenfilename(
+            title='Choose an older Zeta Dreamer 3D HTML world',
+            filetypes=[('Standalone HTML worlds', '*.html')])
+        if not path:
+            return
+        self.export_busy = True
+        self.lbl_loss.config(text='Rebuilding thin filaments from saved HTML…')
+        def worker():
+            try:
+                info = upgrade_exported_html(path)
+                def done():
+                    self.export_busy = False
+                    self.lbl_loss.config(text=f'Upgraded: {info["filament_segment_count"]:,} thin segments')
+                    webbrowser.open(Path(info['output']).resolve().as_uri())
+                    messagebox.showinfo('World upgraded',
+                        'A sharper copy was saved next to the original.\n'
+                        'No retraining was needed.\n\n'
+                        + Path(info['output']).name)
+                self.root.after(0, done)
+            except Exception as e:
+                def fail(msg=str(e)):
+                    self.export_busy = False
+                    self.lbl_loss.config(text='Upgrade failed')
+                    messagebox.showerror('Upgrade failed', msg)
+                self.root.after(0, fail)
+        Thread(target=worker, daemon=True).start()
 
     def _export_3d_dialog(self):
         if self.export_busy:
