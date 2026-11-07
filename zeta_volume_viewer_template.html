@@ -126,10 +126,38 @@ void main(){
  color=color/(vec3(1.)+color);
  frag=vec4(pow(max(color,vec3(0.)),vec3(.76)),1.);
 }`;
+const LINE_VERT="#version 300 es\nprecision highp float;\nlayout(location=0) in vec3 aStart;\nlayout(location=1) in vec3 aFinish;\nlayout(location=2) in vec2 aMeta;\nuniform vec2 uResolution;\nuniform vec3 uCamera;\nuniform mat3 uBasis;\nuniform float uWidth;\nout vec3 vColor;\nout float vFade;\nout float vSide;\nvoid main(){\n  vec3 a=aStart*2.0-1.0, b=aFinish*2.0-1.0;\n  vec3 midpoint=(a+b)*.5;\n  vec3 right=uBasis[0],up=uBasis[1],forward=uBasis[2];\n  vec3 pc=vec3(dot(a-uCamera,right),dot(a-uCamera,up),dot(a-uCamera,forward));\n  vec3 qc=vec3(dot(b-uCamera,right),dot(b-uCamera,up),dot(b-uCamera,forward));\n  if((pc.z<.04&&qc.z<.04)||dot(midpoint,midpoint)>1.04){\n    gl_Position=vec4(3.,3.,0.,1.);vColor=vec3(0.);vFade=0.;vSide=0.;return;\n  }\n  // Clip line endpoints to the camera near plane.\n  if(pc.z<.04)pc=mix(pc,qc,clamp((.04-pc.z)/(qc.z-pc.z),0.,1.));\n  if(qc.z<.04)qc=mix(qc,pc,clamp((.04-qc.z)/(pc.z-qc.z),0.,1.));\n  vec2 A=2.*vec2(pc.x*uResolution.y/uResolution.x,pc.y)/(pc.z*1.35);\n  vec2 B=2.*vec2(qc.x*uResolution.y/uResolution.x,qc.y)/(qc.z*1.35);\n  vec2 delta=(B-A)*uResolution;\n  float d=length(delta);\n  if(d<.04){gl_Position=vec4(3.,3.,0.,1.);vColor=vec3(0.);vFade=0.;vSide=0.;return;}\n  vec2 norm=vec2(-delta.y,delta.x)/d;\n  int id=gl_VertexID%6;\n  float along=(id==2||id==3||id==5)?1.:0.;\n  float side=(id==1||id==4||id==5)?1.:-1.;\n  vec2 pixelOffset=2.*norm*side*uWidth/uResolution;\n  gl_Position=vec4(mix(A,B,along)+pixelOffset,0.,1.);\n  float channel=aMeta.x;\n  vColor=(channel<.25)?vec3(.15,.96,1.):((channel<.75)?vec3(.92,.38,1.):vec3(1.,.68,.24));\n  vFade=clamp(1.7/(1.+.24*(pc.z+qc.z)),.18,1.);\n  vSide=side;\n}";
+const LINE_FRAG="#version 300 es\nprecision highp float;\nin vec3 vColor;\nin float vFade;\nin float vSide;\nuniform float uOpacity;\nout vec4 frag;\nvoid main(){\n  float smoothCore=exp(-2.0*vSide*vSide);\n  frag=vec4(vColor*(.75+.25*vFade),clamp(uOpacity*smoothCore*vFade,0.,1.));\n}";
 function shader(type,src){const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;}
 function program(){const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,VERT));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,FRAG));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p;}
+function filamentProgram(){
+ const lineProgram=gl.createProgram();
+ gl.attachShader(lineProgram,shader(gl.VERTEX_SHADER,LINE_VERT));
+ gl.attachShader(lineProgram,shader(gl.FRAGMENT_SHADER,LINE_FRAG));
+ gl.linkProgram(lineProgram);
+ if(!gl.getProgramParameter(lineProgram,gl.LINK_STATUS))throw Error('Filament shader: '+gl.getProgramInfoLog(lineProgram));
+ return lineProgram;
+}
+function setupFilaments(){
+ if(!EMBEDDED.segments)return;
+ const bytes=decode(EMBEDDED.segments);
+ if(bytes.byteLength%16!==0)throw Error('Invalid filament segment buffer');
+ lineCount=bytes.byteLength/16;
+ if(!lineCount)return;
+ lineVao=gl.createVertexArray();
+ gl.bindVertexArray(lineVao);
+ const buf=gl.createBuffer();
+ gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+ gl.bufferData(gl.ARRAY_BUFFER,bytes,gl.STATIC_DRAW);
+ for(let i=0;i<3;i++){
+  gl.enableVertexAttribArray(i);
+  gl.vertexAttribPointer(i,i===2?2:3,gl.UNSIGNED_SHORT,true,16,i===0?0:i===1?6:12);
+  gl.vertexAttribDivisor(i,1);
+ }
+ gl.bindVertexArray(null);
+}
 function tex3d(i,b64){const data=decode(b64);if(data.length!==S*S*S*4)throw Error('Corrupt volume '+i+': '+data.length);const tx=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_3D,tx);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.texImage3D(gl.TEXTURE_3D,0,gl.RGBA8,S,S,S,0,gl.RGBA,gl.UNSIGNED_BYTE,data);return tx;}
-let p,loc,ready=false;
+let p,loc,ready=false,quadVao,lineProgramObject,lineLoc,lineVao=null,lineCount=0;
 const state={pos:[0,0,-.33],yaw:0,pitch:0,move:1.0,mode:0,cut:.24,density:2.8,scale:.80,steps:176,lineWidth:2,channel:0,rim:true};
 const keys=new Set();let last=performance.now(),frame=0;
 function init(){
@@ -137,8 +165,13 @@ function init(){
  p=program();gl.useProgram(p);loc={};for(const n of ['uResolution','uRGB','uComplex0','uComplex1','uCamera','uBasis','uCut','uDensity','uTime','uMode','uChannel','uSteps','uRim'])loc[n]=gl.getUniformLocation(p,n);
  tex3d(0,EMBEDDED.rgb);tex3d(1,EMBEDDED.c0);tex3d(2,EMBEDDED.c1);
  for(let i=0;i<3;i++)gl.uniform1i(loc[['uRGB','uComplex0','uComplex1'][i]],i);
- const vao=gl.createVertexArray();gl.bindVertexArray(vao);
- ready=true;$('status').textContent='VOLUME LOADED';$('runningDot').style.background='#7be8e4';
+ quadVao=gl.createVertexArray();gl.bindVertexArray(quadVao);
+  lineProgramObject=filamentProgram();
+  gl.useProgram(lineProgramObject);lineLoc={};
+  for(const n of ['uResolution','uCamera','uBasis','uWidth','uOpacity'])lineLoc[n]=gl.getUniformLocation(lineProgramObject,n);
+  setupFilaments();
+  gl.useProgram(p);gl.bindVertexArray(quadVao);
+ ready=true;$('status').textContent='VOLUME LOADED · '+lineCount.toLocaleString()+' THIN SEGMENTS';$('runningDot').style.background='#7be8e4';
 }
 function notify(msg){const el=$('notice');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',4500);}
 const vec3=(x,y,z)=>[x,y,z];
@@ -159,7 +192,21 @@ function render(now){requestAnimationFrame(render);if(!ready)return;
  const dl=Math.hypot(...delta);if(dl>0)for(let k=0;k<3;k++)state.pos[k]=Math.max(-2.6,Math.min(2.6,state.pos[k]+delta[k]/dl*speed*dt));
  if(frame++%10===0){const z=(state.pos[2]+1)/2;const t=EMBEDDED.t0+z*(EMBEDDED.t1-EMBEDDED.t0);$('xyz').textContent=state.pos.map(x=>x.toFixed(2)).join(', ');$('timeT').textContent=t.toFixed(3);const anchor=EMBEDDED.anchors;const min=Math.min(...anchor),max=Math.max(...anchor);$('region').textContent=t>=min&&t<=max?'WITHIN IMAGE ANCHORS':'EXTRAPOLATED REGION';const nearest=EMBEDDED.zeros.reduce((prev,v)=>Math.abs(v-t)<Math.abs(prev-t)?v:prev,999);$('nearZero').textContent=nearest!==999&&Math.abs(nearest-t)<1.5?'near zeta zero '+nearest.toFixed(3)+' (marker only)':'';}
  const W=Math.max(160,Math.floor(innerWidth*state.scale)),H=Math.max(100,Math.floor(innerHeight*state.scale));if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;gl.viewport(0,0,W,H);}
- gl.useProgram(p);gl.uniform2f(loc.uResolution,W,H);gl.uniform3fv(loc.uCamera,state.pos);gl.uniformMatrix3fv(loc.uBasis,false,new Float32Array([...right,...up,...forwards]));gl.uniform1f(loc.uTime,now/1000);gl.uniform1f(loc.uCut,state.cut);gl.uniform1f(loc.uDensity,state.density);gl.uniform1i(loc.uMode,state.mode);gl.uniform1i(loc.uChannel,state.channel);gl.uniform1i(loc.uSteps,state.steps);gl.uniform1i(loc.uRim,state.rim?1:0);gl.drawArrays(gl.TRIANGLES,0,3);
+ gl.useProgram(p);gl.uniform2f(loc.uResolution,W,H);gl.uniform3fv(loc.uCamera,state.pos);gl.uniformMatrix3fv(loc.uBasis,false,new Float32Array([...right,...up,...forwards]));gl.uniform1f(loc.uTime,now/1000);gl.uniform1f(loc.uCut,state.cut);gl.uniform1f(loc.uDensity,state.density);gl.uniform1i(loc.uMode,state.mode);gl.uniform1i(loc.uChannel,state.channel);gl.uniform1i(loc.uSteps,state.steps);gl.uniform1i(loc.uRim,state.rim?1:0);gl.bindVertexArray(quadVao);gl.drawArrays(gl.TRIANGLES,0,3);
+  if(lineCount&&(state.mode===0||state.mode===4)){
+   gl.useProgram(lineProgramObject);gl.bindVertexArray(lineVao);
+   gl.uniform2f(lineLoc.uResolution,W,H);
+   gl.uniform3fv(lineLoc.uCamera,state.pos);
+   gl.uniformMatrix3fv(lineLoc.uBasis,false,new Float32Array([...right,...up,...forwards]));
+   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+   gl.uniform1f(lineLoc.uWidth,state.lineWidth*2.5);
+   gl.uniform1f(lineLoc.uOpacity,.15);
+   gl.drawArraysInstanced(gl.TRIANGLES,0,6,lineCount);
+   gl.uniform1f(lineLoc.uWidth,state.lineWidth*.52);
+   gl.uniform1f(lineLoc.uOpacity,.92);
+   gl.drawArraysInstanced(gl.TRIANGLES,0,6,lineCount);
+   gl.disable(gl.BLEND);gl.bindVertexArray(quadVao);
+  }
 }
 function linkSlider(id,key,format){const el=$(id),label=$(id+'V');el.addEventListener('input',()=>{state[key]=Number(el.value)*({scale:.01}[key]||1);label.textContent=format(state[key]);});}
 function setup(){
