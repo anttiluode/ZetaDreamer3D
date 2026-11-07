@@ -13,6 +13,7 @@ from typing import Callable
 
 import numpy as np
 import torch
+from zeta_filament_mesh import extract_vortex_segments
 
 TEMPLATE = Path(__file__).with_name('zeta_volume_viewer_template.html')
 RIEMANN_ZEROS = [
@@ -56,14 +57,9 @@ def _phase_winding_mask(field: np.ndarray) -> tuple[np.ndarray, dict]:
         for corner in (base, plus_a, plus_ab, plus_b):
             result[tuple(corner[:3])] = np.maximum(result[tuple(corner[:3])], has_vortex)
 
-    # A tiny halo helps the GPU find thin curves at a moderate step size.
-    try:
-        from scipy.ndimage import maximum_filter
-        visual = maximum_filter(result, size=3)
-        visual = np.maximum(result, visual * .65)
-    except ImportError:
-        visual = result
-    return visual, stats
+    # No morphological expansion: a phase-winding mask is useful as a
+    # diagnostic but should not be mistaken for a resolved filament surface.
+    return result, stats
 
 
 def _to_rgba_u8(channels: np.ndarray) -> np.ndarray:
@@ -136,7 +132,10 @@ def export_world(model, path: str | Path, t_min: float = 75.0, t_max: float = 85
                  progress: Callable[[int, int], None] | None = None) -> dict:
     raw, sampling = evaluate_volume(model, t_min, t_max, size=size, progress=progress)
     packed, meta = pack_volume(raw)
-    data = {**packed, 'size': size, 't0': t_min, 't1': t_max,
+    # Unlike the legacy 3x3 dilated plaquette mask, these are actual
+    # sub-grid line segments obtained by solving Re(Z)=Im(Z)=0.
+    segments, seg_meta = extract_vortex_segments(raw)
+    data = {**packed, 'segments': segments, 'size': size, 't0': t_min, 't1': t_max,
             'anchors': [float(x) for x in (anchors or [])],
             'zeros': RIEMANN_ZEROS}
     template = TEMPLATE.read_text('utf-8')
@@ -153,4 +152,4 @@ def export_world(model, path: str | Path, t_min: float = 75.0, t_max: float = 85
     path = Path(path).expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(template, encoding='utf-8')
-    return {'path': str(path), 'bytes': path.stat().st_size, **sampling, **meta}
+    return {'path': str(path), 'bytes': path.stat().st_size, **sampling, **meta, **seg_meta}
